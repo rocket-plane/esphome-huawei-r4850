@@ -2,8 +2,9 @@
 
 [![License][license-shield]](LICENSE)
 
+This is a fork of "https://github.com/mb-software/esphome-huawei-r4850".  
 
-<a href="https://www.buymeacoffee.com/mbsoftware"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=mbsoftware&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
+This fork should be considered unstable so better choose the one from mb-software.
 
 ## EspHome Component to control and read values from a huawei r4850 power supply via CAN bus.
 
