@@ -1,9 +1,9 @@
 esphome:
-  name: huawei_r4850
-  friendly_name: Huawei R4850
+  name: ladegeraet
+  friendly_name: Ladegerät
 
 external_components:
-  - source: github://mb-software/esphome-huawei-r4850
+ - source: github://rocket-plane/esphome-huawei-r4850
 
 esp32:
   board: esp32dev
@@ -12,17 +12,47 @@ esp32:
 logger:
   level: DEBUG
   logs:
-    canbus: INFO
+    canbus: WARN
 
 # Enable Home Assistant API
 api:
+  encryption:
+    key: "EnterSecretApiKeyHere"
+
+ota:
+  password: "EnterSecretOTAKeyHere"
+  platform: esphome
 
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
+  domain: .yourdomain.lan
+  manual_ip:
+    static_ip: 192.168.1.107
+    gateway: 192.168.1.1
+    subnet: 255.255.255.0
+    dns1: 192.168.1.1
+
+  ap:
+    ssid: "Ladegerät Fallback Hotspot"
+    password: !secret wifi_ap_password
+
+captive_portal:
 
 web_server:
+  auth:
+    username: !secret webserver_user
+    password: !secret webserver_password
+  include_internal: True
 
+# I2C Pins for Display
+i2c:
+  sda: GPIO21
+  scl: GPIO22
+  scan: true
+  frequency: 800kHz
+
+# CAN for R4850
 canbus:
   - platform: esp32_can
     id: can
@@ -33,43 +63,328 @@ canbus:
     bit_rate: 125kbps
 
 
+# GPIOs for Buttons
+binary_sensor:
+  # Enter - Taster
+  - platform: gpio
+    pin:  
+      number: GPIO04
+      mode:
+        input: true
+        pulldown: True
+    internal: True
+    filters:
+      - delayed_off: 30ms
+    name: "Enter Taster"
+    on_press:
+      - if:
+          condition:
+            display_menu.is_active: my_graphical_display_menu
+          then:
+            - display_menu.enter: my_graphical_display_menu
+          else:
+            - display_menu.show:  my_graphical_display_menu
+
+  # Runter Taster
+  - platform: gpio
+    pin:  
+      number: GPIO16
+      mode:
+        input: true
+        pulldown: True
+    internal: True
+    filters:
+      - autorepeat:      
+          delay: 0.2s
+          time_off: 100ms
+          time_on: 100ms
+      - delayed_off: 30ms
+    name: "Runter Taster"
+    on_press:
+    - if :
+        condition:
+          display_menu.is_active: my_graphical_display_menu
+        then:
+          - if:
+              condition:
+                lambda: "return id(menu_in_edit_mode);"          
+              then:
+                - display_menu.up: my_graphical_display_menu
+              else:
+                - display_menu.down: my_graphical_display_menu
+        else:
+          - display.page.show_next: my_display_component
+          - component.update: my_display_component
+
+
+  # Rauf Taster
+  - platform: gpio
+    pin:  
+      number: GPIO17
+      mode:
+        input: true
+        pulldown: True
+    internal: True
+    filters:
+      - autorepeat:      
+          delay: 0.2s
+          time_off: 100ms
+          time_on: 100ms
+      - delayed_off: 30ms
+    name: "Rauf Taster"
+    on_press: 
+    - if :
+        condition:
+          display_menu.is_active: my_graphical_display_menu
+        then:
+          - if:
+              condition:
+                lambda: "return id(menu_in_edit_mode);"          
+              then:
+                - display_menu.down: my_graphical_display_menu
+              else:
+                - display_menu.up: my_graphical_display_menu
+        else:
+          - display.page.show_previous: my_display_component
+          - component.update: my_display_component
+
 huawei_r4850:
   canbus_id: can
   update_interval: 5s
+  id: netzteil
+
+
+# Schriftarten definieren
+font:
+  # - file: "fonts/PixelOperator8.ttf"
+  #   size: 8
+  - file: "fonts/pixelmix.ttf"
+    size: 8
+    id: my_font
+    #bpp: 2
 
 sensor:
+  - platform: integration
+    name: "Eingang - Gesamtenergie"
+    sensor: cur_input_power
+    state_class: total_increasing
+    device_class: energy
+    time_unit: h
+    unit_of_measurement: 'kWh'
+    accuracy_decimals: 3
+    filters:
+      - multiply: 0.001       # Multiplication factor from W to kW is 0.001
+
+  - platform: integration
+    name: "Ausgang - Gesamtenergie"
+    sensor: cur_output_power
+    state_class: total_increasing
+    device_class: energy
+    time_unit: h
+    unit_of_measurement: 'kWh'
+    accuracy_decimals: 3
+    filters:
+      - multiply: 0.001       # Multiplication factor from W to kW is 0.001
+
   - platform: huawei_r4850
     output_voltage:
-      name: Output voltage
+      id: cur_output_voltage
+      name: Ausgang - Spannung
     output_current:
-      name: Output current
+      id: cur_output_current
+      name: Ausgang - Strom
     output_power:
-      name: Output power
+      id: cur_output_power
+      name: Ausgang - Leistung
     input_voltage:
-      name: Input voltage
+      id: cur_input_voltage
+      name: Eingang - Spannung
     input_current:
-      name: Input current
+      id: cur_input_current
+      name: Eingang - Strom
     input_power:
-      name: Input power
+      id: cur_input_power
+      name: Eingang - Leistung
     input_frequency:
-      name: Input frequency
+      id: cur_input_frequency
+      name: Eingang - Frequenz
     efficiency:
-      name: Efficiency
+      id: cur_efficiency
+      name: Effizienz
     input_temp:
-      name: Input temperature
+      id: cur_input_temp
+      name: Eingang Temperatur
     output_temp:
-      name: Output temperature
-    
+      id: cur_output_temperature
+      name: Ausgang Temperatur
+
 
 number:
   - platform: huawei_r4850
     output_voltage:
-      name: Set output voltage
+      id: setpoint_output_voltage
+      name: Ausgang - Maximale Spannung (nicht verändern)
+      internal: True
     max_output_current:
-      name: Max output current
+      id: setpoint_output_current
+      name: Ausgang - Maximaler Strom (nicht verändern)
+      internal: True
+
+  - platform: template
+    name: "Ausgang - Maximaler Strom - Sollwert"
+    id: desired_setpoint_output_current
+    optimistic: true
+    min_value: 0
+    max_value: 60
+    restore_value: True
+    unit_of_measurement: A
+    initial_value: 32
+    step: 1
+    mode: BOX # kein Slider sondern Feld zur Eingabe des Wertes
+    set_action:
+      - lambda: |-
+          id(netzteil).set_max_output_current(x);
+
+  - platform: template
+    name: "Ausgang - Maximale Spannung - Sollwert"
+    id: desired_setpoint_output_voltage
+    optimistic: true
+    min_value: 48
+    max_value: 53.5
+    restore_value: True
+    unit_of_measurement: V
+    initial_value: 53.5
+    mode: BOX # kein Slider sondern Feld zur Eingabe des Wertes
+    step: 0.1
+    set_action:
+      - lambda: |-
+          id(netzteil).set_output_voltage(x);
+
+
+interval:
+    # Alle 20 Sekunden die Sollwerte für Max. Strom und Spannung an das Netzteil senden
+    # Dies ist wichtig, wenn z.B. zwischenzeitlich die AC Versorgung getrennt wurde oder das Netzteil
+    # ausgeschaltet wurde.
+  - interval: 20s
+    then:
+    - logger.log: Regular Update Voltage & Current
+    - lambda: |-
+        id(netzteil).set_output_voltage(id(desired_setpoint_output_voltage).state);
+        id(netzteil).set_max_output_current(id(desired_setpoint_output_current).state);
+
 
 button:
   - platform: huawei_r4850
     set_offline_values:
+      id: btn_set_offline_values
       name: Set offline values
+
+globals:
+  # Diese Variable gibt an, ob gerade ein Wert im Menü eingestellt wird oder nicht.
+  # Wenn ein Wert eingestellt wird, wird die Drehrichtung umgekeht, da es ansonsten mit den
+  # Pfeiltasten (Hoch, Runter) nicht passt.
+  - id: menu_in_edit_mode
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
       
+display:
+  - platform: ssd1306_i2c
+    id: my_display_component
+    #update_interval: 100ms
+    model: "SH1106 128x64"
+    address: 0x3C  # I²C-Adresse des Displays (standardmäßig 0x3C)
+    pages:
+    - id: graph_page
+      lambda: |-
+        it.print(40, 0, id(my_font), "Out");
+        it.print(100, 0, id(my_font), "In");
+        it.print(0, 10, id(my_font), "U");
+        it.print(0, 20, id(my_font), "I");
+        it.print(0, 30, id(my_font), "P");
+        it.print(0, 40, id(my_font), "T");
+        it.print(0, 50, id(my_font), "S");
+
+        it.printf(60,10, id(my_font), TextAlign::TOP_RIGHT, "%.1f V", id(cur_output_voltage).state);
+        it.printf(60,20, id(my_font), TextAlign::TOP_RIGHT, "%.1f A", id(cur_output_current).state);
+        it.printf(60,30, id(my_font), TextAlign::TOP_RIGHT, "%.1f W", id(cur_output_power).state);
+        it.printf(60,40, id(my_font), TextAlign::TOP_RIGHT, "%.1f °", id(cur_output_temperature).state);
+        it.printf(60,50, id(my_font), TextAlign::TOP_RIGHT, "%.1f A", id(setpoint_output_current).state);
+
+        it.printf(120,10, id(my_font), TextAlign::TOP_RIGHT, "%3.1f V", id(cur_input_voltage).state);
+        it.printf(120,20, id(my_font), TextAlign::TOP_RIGHT, "%3.1f A", id(cur_input_current).state);
+        it.printf(120,30, id(my_font), TextAlign::TOP_RIGHT, "%3.1f W", id(cur_input_power).state);
+        it.printf(120,40, id(my_font), TextAlign::TOP_RIGHT, "%3.1f °", id(cur_input_temp).state);
+        it.printf(120,50, id(my_font), TextAlign::TOP_RIGHT, "%3.1f V", id(desired_setpoint_output_voltage).state);
+        
+
+    - id: second_page
+      lambda: |-
+        it.printf(00,00, id(my_font), "Effizienz: %.1f%%", id(cur_efficiency).state);
+        it.printf(00,10, id(my_font), "Frequenz: %.1f Hz", id(cur_input_frequency).state);
+        it.printf(00,20, id(my_font), "Max Spann.: %.1f V / %.1f", id(setpoint_output_voltage).state, id(desired_setpoint_output_voltage).state);
+        it.printf(00,30, id(my_font), "Max Strom.: %.1f A / %.1f", id(setpoint_output_current).state, id(desired_setpoint_output_current).state);
+
+
+graphical_display_menu:
+  id: my_graphical_display_menu
+  display: my_display_component
+  font: my_font
+  on_redraw:
+    then:
+      component.update: my_display_component
+  active: false
+  mode: rotary
+  items:
+    - type: command
+      text: 'Zurück'
+      on_value:
+        then:
+          - display_menu.hide:
+    - type: menu
+      text: 'Zusatz-Einstellungen'
+      items:
+        - type: back
+          text: 'Zurück'
+        - type: number
+          text: 'U Max:'
+          format: '%.2f'
+          number: desired_setpoint_output_voltage
+          on_enter: &on_enter_action
+            - globals.set:
+                id: menu_in_edit_mode
+                value: "true"
+          on_leave: &on_leave_action
+            - globals.set:
+                id: menu_in_edit_mode
+                value: "false"                
+        - type: command
+          text: 'Offline Werte Setzen'
+          on_value:
+            then:
+              - button.press: btn_set_offline_values
+    - type: number
+      text: 'I Max:'
+      format: '%.2f'
+      number: desired_setpoint_output_current
+      on_enter: *on_enter_action
+      on_leave: *on_leave_action
+
+    - type: label
+      text: !lambda |-
+        char buffer[20];
+        float wert;
+        wert=id(desired_setpoint_output_current).state*53.5;
+        snprintf(buffer, sizeof(buffer), "P Max: %.2f W", wert);  // Formatierung mit 2 Nachkommastellen
+        return std::string(buffer);
+
+
+
+
+
+
+
+
+
+
