@@ -4,7 +4,7 @@
 
 This is a fork of "https://github.com/mb-software/esphome-huawei-r4850".  
 
-This fork should be considered unstable so better choose the one from mb-software.
+This fork is working for me as it is. But it is not actively maintened. Basically I added display, menu and buttons and a little bit of logic to the version of mb-software.
 
 ## EspHome Component to control and read values from a huawei r4850 power supply via CAN bus.
 
@@ -14,7 +14,7 @@ In theory it should work also with the mcp2515 platform, but this is currently n
 
 ### How to use
 Please check the provided example esphome configuration:
-[huawei_r4850.yaml](https://github.com/mb-software/esphome-huawei-r4850/blob/main/huawei_r4850.yaml)
+[huawei_r4850.yaml](https://github.com/rocket-plane/esphome-huawei-r4850/blob/main/huawei_r4850.yaml)
 
 
 [license-shield]: https://img.shields.io/github/license/mb-software/homeassistant-powerbrain.svg?style=for-the-badge
